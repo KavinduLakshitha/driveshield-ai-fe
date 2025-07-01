@@ -1,75 +1,139 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      {/* App Header */}
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../../assets/images/Alarm.png')}
+            style={styles.logo}
+          />
+          <View style={styles.logoGlow} />
+        </View>
+        <Text style={styles.title}>DRIVESHIELD AI</Text>
+        <Text style={styles.subtitle}>SMART ROAD HAZARD DETECTION</Text>
+      </View>
+
+      {/* Main Content */}
+      <View style={styles.content}>
+        <View style={styles.imageContainer}>
+          <Image
+            source={require('../../assets/images/road.webp')}
+            style={styles.illustration}
+            resizeMode="contain"
+          />
+          <View style={styles.imageOverlay} />
+        </View>
+
+        <Text style={styles.description}>
+          Real-time accident risk prediction using advanced AI to keep you safe on the road.
+        </Text>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Drive Safe, Drive Smart</Text>
+        <Text style={styles.versionText}>v2.4.0</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0f24',
+    padding: 24,
+    justifyContent: 'space-between',
+  },
+  header: {
     alignItems: 'center',
-    gap: 8,
+    marginTop: 40,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  logoContainer: {
+    position: 'relative',
+    marginBottom: 20,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  logo: {
+    width: 80,
+    height: 93,
+    zIndex: 2,
+  },
+  logoGlow: {
     position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#0a0f24',
+    top: -5,
+    left: -5,
+    zIndex: 1,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 4,
+    letterSpacing: 1.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    letterSpacing: 1.2,
+    fontWeight: '500',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  imageContainer: {
+    position: 'relative',
+    marginBottom: 40,
+  },
+  illustration: {
+    width: width * 0.9,
+    height: width * 0.6,
+    borderRadius: 12,
+    zIndex: 2,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    width: width * 0.8,
+    height: width * 0.6,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 12,
+    zIndex: 1,
+    top: 0,
+    left: 0,
+  },
+  description: {
+    fontSize: 16,
+    color: '#e2e8f0',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '400',
+    letterSpacing: 0.5,
+  },
+  footer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  versionText: {
+    fontSize: 10,
+    color: '#475569',
+    fontWeight: '500',
   },
 });
