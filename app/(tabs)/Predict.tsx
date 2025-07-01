@@ -1,12 +1,31 @@
-import React, { useState, useEffect } from "react";
+import * as Speech from "expo-speech";
+import React, { useEffect, useState } from "react";
 import {
-  View, Text, TouchableOpacity, ActivityIndicator,
-  StyleSheet, Image, Animated, Easing
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Easing,
+  SafeAreaView, ScrollView,
+  StyleSheet,
+  Text, TouchableOpacity,
+  View
 } from "react-native";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  Cpu,
+  Crosshair,
+  Info,
+  Pause,
+  Radio,
+  RotateCw
+} from 'react-native-feather';
 import { getPrediction } from "../../services/api";
-import * as Speech from "expo-speech"; // Import Text-to-Speech
 
-export default function HomeScreen() {
+const { width, height } = Dimensions.get('window');
+
+export default function PredictScreen() {
   const [risk, setRisk] = useState("");
   const [loading, setLoading] = useState(false);
   const [networkStatus, setNetworkStatus] = useState({
@@ -18,21 +37,23 @@ export default function HomeScreen() {
 
   // Continuous scanning effect
   useEffect(() => {
-    let interval;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     if (autoScan) {
       fetchPrediction(); // Initial scan
       interval = setInterval(fetchPrediction, 30000); // Scan every 30 seconds
     }
 
-    return () => clearInterval(interval);
+        return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [autoScan]);
 
   const startPulse = () => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.03,
+          toValue: 1.05,
           duration: 1000,
           easing: Easing.ease,
           useNativeDriver: true
@@ -81,9 +102,10 @@ export default function HomeScreen() {
       }
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setNetworkStatus(prev => ({
         message: "NETWORK ERROR",
-        attempts: [...prev.attempts, error.message]
+        attempts: [...prev.attempts, errorMessage]
       }));
       pulseAnim.stopAnimation();
     } finally {
@@ -95,330 +117,555 @@ export default function HomeScreen() {
     setAutoScan(!autoScan);
   };
 
+  const getRiskIcon = () => {
+    if (risk.includes("High")) {
+      return <AlertTriangle stroke="#ef4444" strokeWidth={2.5} width={32} height={32} />;
+    } else if (risk) {
+      return <CheckCircle stroke="#22c55e" strokeWidth={2.5} width={32} height={32} />;
+    } else {
+      return <RotateCw stroke="#3b82f6" strokeWidth={2.5} width={32} height={32} />;
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Header Section */}
-      <View style={[styles.headerContainer, { paddingTop: 40 }]}>
-        <View style={styles.headerRow}>
-          <Image
-            source={require('../../assets/images/Alarm.png')}
-            style={styles.badgeIcon}
-          />
-          <Text style={styles.title}>DRIVESHIELD AI</Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      {/* Animated Background Waves */}
+      <View style={styles.backgroundContainer}>
+        <View style={[styles.wave, styles.wave1]} />
+        <View style={[styles.wave, styles.wave2]} />
+        <View style={[styles.wave, styles.wave3]} />
+        <View style={[styles.wave, styles.wave4]} />
       </View>
 
-      {/* Status Indicator */}
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusLabel}>SYSTEM STATUS</Text>
-        <View style={styles.statusRow}>
-          <View style={[
-            styles.statusLight,
-            risk.includes("High") ? styles.statusRed :
-            risk ? styles.statusGreen : styles.statusYellow
-          ]}/>
-          <Text style={styles.statusText}>
-            {networkStatus.message}
-          </Text>
+      <ScrollView 
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <View style={styles.logoIconContainer}>
+              <Crosshair stroke="#3b82f6" strokeWidth={2.5} width={24} height={24} />
+            </View>
+            <Text style={styles.title}>AI PREDICTION</Text>
+          </View>
+          <Text style={styles.subtitle}>Real-time Risk Analysis</Text>
         </View>
-      </View>
 
-      {/* Main Risk Display */}
-      <View style={styles.riskDisplayOuter}>
-        <Animated.View style={[
-          styles.riskDisplay,
-          { transform: [{ scale: pulseAnim }] },
-          risk.includes("High") ? styles.highRiskContainer : styles.lowRiskContainer
-        ]}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#FFFFFF" />
-          ) : (
-            <View style={styles.riskContent}>
+        {/* Status Card */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusHeader}>
+            <Text style={styles.statusLabel}>System Status</Text>
+            <View style={styles.statusIndicator}>
+              <View style={[
+                styles.statusDot,
+                risk.includes("High") ? styles.statusRed :
+                risk ? styles.statusGreen : styles.statusYellow
+              ]} />
+              <Text style={styles.statusText}>{networkStatus.message}</Text>
+            </View>
+          </View>
+          <View style={styles.statusWave} />
+        </View>
 
-              <View style={styles.riskTextContainer}>
-                <Text style={risk.includes("High") ? styles.highRiskText : styles.lowRiskText}>
-                  {risk ? risk.split(" ")[0] : "---"}
-                </Text>
-                {risk && (
-                  <Text style={risk.includes("High") ? styles.highRiskSubText : styles.lowRiskSubText}>
-                    {risk.split(" ").slice(1).join(" ")}
+        {/* Main Risk Display */}
+        <View style={styles.riskSection}>
+          <Animated.View style={[
+            styles.riskDisplay,
+            { transform: [{ scale: pulseAnim }] },
+            risk.includes("High") ? styles.highRiskContainer : styles.lowRiskContainer
+          ]}>
+            <View style={styles.riskGradient} />
+            
+            {loading ? (
+              <View style={styles.loadingContent}>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <Text style={styles.loadingText}>Analyzing Route...</Text>
+              </View>
+            ) : (
+              <View style={styles.riskContent}>
+                <View style={styles.riskIcon}>
+                  {getRiskIcon()}
+                </View>
+                
+                <View style={styles.riskTextContainer}>
+                  <Text style={risk.includes("High") ? styles.highRiskText : styles.lowRiskText}>
+                    {risk ? risk.split(" ")[0] : "Standby"}
                   </Text>
+                  {risk && (
+                    <Text style={risk.includes("High") ? styles.highRiskSubText : styles.lowRiskSubText}>
+                      {risk.split(" ").slice(1).join(" ")}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+          </Animated.View>
+        </View>
+
+        {/* Control Panel */}
+        <View style={styles.controlSection}>
+          <TouchableOpacity
+            style={[
+              styles.scanButton,
+              autoScan ? styles.scanButtonActive : styles.scanButtonInactive,
+              loading && styles.scanButtonDisabled
+            ]}
+            onPress={toggleAutoScan}
+            activeOpacity={0.8}
+          >
+            <View style={styles.buttonContent}>
+              <View style={styles.scanButtonIconContainer}>
+                {autoScan ? (
+                  <RotateCw stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                ) : (
+                  <Pause stroke="#ffffff" strokeWidth={2} width={20} height={20} />
                 )}
               </View>
+              <Text style={styles.scanButtonText}>
+                {autoScan ? "Auto Scanning Active" : "Tap to Enable Auto Scan"}
+              </Text>
             </View>
-          )}
-        </Animated.View>
-      </View>
+            <View style={styles.buttonGradient} />
+          </TouchableOpacity>
 
-      {/* Control Panel */}
-      <View style={styles.controlPanel}>
-        <TouchableOpacity
-          style={[styles.scanButton, loading && styles.scanButtonDisabled]}
-          onPress={toggleAutoScan}
-        >
-          <Text style={styles.scanButtonText}>
-            {autoScan ? "AUTO SCANNING" : "TAP TO ENABLE AUTO SCAN"}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={[
-          styles.emergencyInfo,
-          risk.includes("High") && styles.highRiskAlert
-        ]}>
-          <Text style={styles.infoText}>
-            {risk.includes("High")
-              ? "⚠️ HIGH RISK DETECTED: Proceed with extreme caution"
-              : "Continuous route monitoring active"}
-          </Text>
+          {/* Alert Card */}
+          <View style={[
+            styles.alertCard,
+            risk.includes("High") && styles.highRiskAlert
+          ]}>
+            <View style={styles.alertContent}>
+              <View style={styles.alertIconContainer}>
+                {risk.includes("High") ? (
+                  <AlertCircle stroke="#ef4444" strokeWidth={2} width={20} height={20} />
+                ) : (
+                  <Info stroke="#3b82f6" strokeWidth={2} width={20} height={20} />
+                )}
+              </View>
+              <Text style={styles.alertText}>
+                {risk.includes("High")
+                  ? "HIGH RISK DETECTED: Proceed with extreme caution"
+                  : "Continuous route monitoring active"}
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>EMERGENCY RESPONSE SYSTEM v2.4</Text>
-        <View style={styles.gpsIndicator}>
-          <View style={styles.gpsDot} />
-          <Text style={styles.footerText}>GPS SYNCHRONIZED</Text>
+        {/* Info Cards */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoCard}>
+            <View style={styles.infoIcon}>
+              <Radio stroke="#3b82f6" strokeWidth={2} width={16} height={16} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>GPS Synchronized</Text>
+              <Text style={styles.infoDescription}>Real-time location tracking</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoIcon}>
+              <Cpu stroke="#8b5cf6" strokeWidth={2} width={16} height={16} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>AI Engine v2.4</Text>
+              <Text style={styles.infoDescription}>Advanced prediction algorithms</Text>
+            </View>
+          </View>
         </View>
+
+        {/* Bottom Spacer */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      {/* Floating Elements */}
+      <View style={styles.floatingElements}>
+        <View style={[styles.floatingDot, styles.dot1]} />
+        <View style={[styles.floatingDot, styles.dot2]} />
+        <View style={[styles.floatingDot, styles.dot3]} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  // Main Container
   container: {
     flex: 1,
     backgroundColor: '#0a0f24',
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 15,
-    justifyContent: 'space-between'
   },
-
-  // Header Section
-  headerContainer: {
+  backgroundContainer: {
+    position: 'absolute',
+    width: width * 2,
+    height: height * 1.5,
+    top: -height * 0.2,
+    left: -width * 0.5,
+  },
+  wave: {
+    position: 'absolute',
+    borderRadius: width,
+  },
+  wave1: {
+    width: width * 1.6,
+    height: width * 1.6,
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    top: height * 0.05,
+    left: -width * 0.3,
+    transform: [{ rotate: '20deg' }],
+  },
+  wave2: {
+    width: width * 1.4,
+    height: width * 1.4,
+    backgroundColor: 'rgba(139, 92, 246, 0.04)',
+    top: height * 0.3,
+    right: -width * 0.2,
+    transform: [{ rotate: '-30deg' }],
+  },
+  wave3: {
+    width: width * 1.8,
+    height: width * 1.8,
+    backgroundColor: 'rgba(236, 72, 153, 0.025)',
+    top: height * 0.6,
+    left: -width * 0.4,
+    transform: [{ rotate: '40deg' }],
+  },
+  wave4: {
+    width: width * 1.2,
+    height: width * 1.2,
+    backgroundColor: 'rgba(34, 197, 94, 0.02)',
+    top: height * 0.15,
+    right: -width * 0.1,
+    transform: [{ rotate: '-15deg' }],
+  },
+  scrollContainer: {
+    flex: 1,
+    zIndex: 2,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
+  },
+  header: {
     alignItems: 'center',
-    marginBottom: 15
+    paddingTop: 30,
+    paddingBottom: 30,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center'
+    marginBottom: 8,
   },
-  badgeIcon: {
-    width: 36,
-    height: 40,
-    marginRight: 1
+  logoIcon: {
+    width: 32,
+    height: 37,
+    marginRight: 8,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 24,
+    fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase'
+    letterSpacing: 0.5,
   },
-  autoScanText: {
-    color: '#34c759',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 5,
-    letterSpacing: 0.5
+  subtitle: {
+    fontSize: 16,
+    color: '#94a3b8',
+    fontWeight: '400',
   },
-
-  // Status Panel
-  statusContainer: {
-    backgroundColor: '#1a2342',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    alignItems: 'flex-start'
+  statusCard: {
+    position: 'relative',
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
+    overflow: 'hidden',
+  },
+  statusHeader: {
+    zIndex: 2,
   },
   statusLabel: {
-    color: '#6d7a9d',
-    fontSize: 12,
-    marginBottom: 5,
-    fontWeight: '600',
-    letterSpacing: 0.5
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '500',
+    marginBottom: 8,
   },
-  statusRow: {
+  statusIndicator: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
   },
-  statusLight: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: 10,
     shadowRadius: 4,
-    shadowOpacity: 0.8
+    shadowOpacity: 0.6,
   },
   statusRed: {
-    backgroundColor: '#ff3a30',
-    shadowColor: '#ff3a30'
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
   },
   statusYellow: {
-    backgroundColor: '#ffcc00',
-    shadowColor: '#ffcc00'
+    backgroundColor: '#eab308',
+    shadowColor: '#eab308',
   },
   statusGreen: {
-    backgroundColor: '#34c759',
-    shadowColor: '#34c759'
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
   },
   statusText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '700'
+    fontWeight: '600',
   },
-
-  // Risk Display
-  riskDisplayOuter: {
-    flex: 1,
-    justifyContent: 'center',
+  statusWave: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(59, 130, 246, 0.03)',
+    top: -75,
+    right: -75,
+    zIndex: 1,
+  },
+  riskSection: {
     alignItems: 'center',
-    marginVertical: 10
+    marginBottom: 32,
   },
   riskDisplay: {
-    width: '90%',
-    aspectRatio: 1,
+    width: width * 0.85,
+    height: width * 0.85,
     maxWidth: 300,
+    maxHeight: 300,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
-    padding: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-    elevation: 15
+    borderRadius: 24,
+    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
   },
   highRiskContainer: {
-    backgroundColor: '#4a0e0e',
-    borderWidth: 4,
-    borderColor: '#ff3a30'
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   lowRiskContainer: {
-    backgroundColor: '#0e2a1d',
-    borderWidth: 4,
-    borderColor: '#34c759'
+    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  riskGradient: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(59, 130, 246, 0.03)',
+    top: -100,
+    right: -100,
+    zIndex: 1,
+  },
+  loadingContent: {
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  loadingText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 16,
   },
   riskContent: {
     alignItems: 'center',
-    width: '100%'
+    zIndex: 2,
   },
-  riskLevelText: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 18,
-    marginBottom: 5,
-    fontWeight: '700'
+  riskIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   riskTextContainer: {
     alignItems: 'center',
-    justifyContent: 'center'
   },
   highRiskText: {
-    fontSize: 42,
-    color: '#ff3a30',
-    fontWeight: '900',
-    textShadowColor: 'rgba(255,58,48,0.7)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
-    lineHeight: 42,
-    textAlign: 'center'
+    fontSize: 36,
+    color: '#ef4444',
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   lowRiskText: {
-    fontSize: 42,
-    color: '#34c759',
-    fontWeight: '900',
-    textShadowColor: 'rgba(52,199,89,0.7)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
-    lineHeight: 42,
-    textAlign: 'center'
+    fontSize: 36,
+    color: '#22c55e',
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   highRiskSubText: {
-    fontSize: 20,
-    color: '#ff3a30',
-    fontWeight: '800',
-    marginTop: 5,
-    textAlign: 'center'
+    fontSize: 18,
+    color: '#ef4444',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   lowRiskSubText: {
-    fontSize: 20,
-    color: '#34c759',
-    fontWeight: '800',
-    marginTop: 5,
-    textAlign: 'center'
+    fontSize: 18,
+    color: '#22c55e',
+    fontWeight: '600',
+    textAlign: 'center',
   },
-
-  // Control Panel
-  controlPanel: {
-    marginTop: 15
+  controlSection: {
+    marginBottom: 24,
   },
   scanButton: {
-    backgroundColor: '#1e3a8a',
-    padding: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 15,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8
+    position: 'relative',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  scanButtonActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  scanButtonInactive: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
   scanButtonDisabled: {
-    backgroundColor: '#4b5563'
+    backgroundColor: 'rgba(75, 85, 99, 0.3)',
+    borderColor: 'rgba(75, 85, 99, 0.3)',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  scanButtonIconContainer: {
+    marginRight: 12,
   },
   scanButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.8
+    fontWeight: '600',
   },
-  emergencyInfo: {
-    backgroundColor: 'rgba(30,58,138,0.25)',
-    padding: 14,
-    borderRadius: 10,
+  buttonGradient: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    top: -75,
+    right: -75,
+    zIndex: 1,
+  },
+  alertCard: {
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#1e3a8a'
+    borderColor: 'rgba(59, 130, 246, 0.2)',
   },
   highRiskAlert: {
-    backgroundColor: 'rgba(255,58,48,0.15)',
-    borderColor: '#ff3a30'
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
-  infoText: {
-    color: '#ffffff',
-    fontSize: 14,
-    textAlign: 'center',
-    fontWeight: '600',
-    lineHeight: 20
-  },
-
-  // Footer
-  footer: {
-    marginTop: 15,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1e2a4a',
-    alignItems: 'center'
-  },
-  gpsIndicator: {
+  alertContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 5
   },
-  gpsDot: {
+  alertIconContainer: {
+    marginRight: 12,
+  },
+  alertText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 20,
+  },
+  infoSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  infoCard: {
+    width: '48%',
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoContent: {
+    alignItems: 'flex-start',
+  },
+  infoTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  infoDescription: {
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  bottomSpacer: {
+    height: 40,
+  },
+  floatingElements: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  floatingDot: {
+    position: 'absolute',
+    borderRadius: 50,
+  },
+  dot1: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#34c759',
-    marginRight: 6
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    top: '20%',
+    right: '15%',
   },
-  footerText: {
-    color: '#6d7a9d',
-    fontSize: 11,
-    fontWeight: '500'
+  dot2: {
+    width: 12,
+    height: 12,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    top: '70%',
+    left: '10%',
+  },
+  dot3: {
+    width: 10,
+    height: 10,
+    backgroundColor: 'rgba(236, 72, 153, 0.1)',
+    top: '50%',
+    right: '8%',
+  },
+    logoIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   }
 });
