@@ -5,10 +5,33 @@ interface ApiEndpoint {
   label: string;
 }
 
+// interface PredictionResponse {
+//   prediction?: any;
+//   data?: any;
+//   risk?: any;
+// }
+
+interface Location {
+  latitude: number;
+  longitude: number;
+}
+
+interface Weather {
+  "Temperature(F)"?: number;
+  "Humidity(%)"?: number;
+  "Visibility(mi)"?: number;
+  "Wind_Speed(mph)"?: number;
+  "Precipitation(in)"?: number;
+  [key: string]: any;
+}
+
 interface PredictionResponse {
-  prediction?: any;
-  data?: any;
-  risk?: any;
+  risk: string;
+  weather: Weather;
+  daylight_status: string;
+  location: Location;
+  probability: number;
+  safety_tips: string[];
 }
 
 // Ordered connection attempts with descriptions
@@ -44,6 +67,39 @@ const getErrorMessage = (error: unknown): string => {
   return 'An unknown error occurred';
 };
 
+// export const getPrediction = async (): Promise<PredictionResponse> => {
+//   let lastError: unknown = null;
+
+//   for (const endpoint of API_ENDPOINTS) {
+//     try {
+//       console.log(`Attempting: ${endpoint.label} (${endpoint.url})`);
+
+//       const response = await axios.get<PredictionResponse>(`${endpoint.url}/predict`, {
+//         timeout: 10000,
+//         headers: {
+//           'Accept': 'application/json',
+//           'Cache-Control': 'no-cache'
+//         }
+//       });
+
+//       console.log(`✅ Connected to ${endpoint.label}`);
+//       return response.data;
+
+//     } catch (error: unknown) {
+//       lastError = error;
+//       const errorMessage = getErrorMessage(error);
+//       console.warn(`❌ Failed ${endpoint.label}:`, errorMessage);
+//     }
+//   }
+
+//   const finalErrorMessage = getErrorMessage(lastError);
+//   throw new Error(
+//     `Cannot connect to server. Tried:\n` +
+//     API_ENDPOINTS.map(e => `• ${e.label} (${e.url})`).join('\n') +
+//     `\n\nFinal error: ${finalErrorMessage}`
+//   );
+// };.
+
 export const getPrediction = async (): Promise<PredictionResponse> => {
   let lastError: unknown = null;
 
@@ -52,7 +108,7 @@ export const getPrediction = async (): Promise<PredictionResponse> => {
       console.log(`Attempting: ${endpoint.label} (${endpoint.url})`);
 
       const response = await axios.get<PredictionResponse>(`${endpoint.url}/predict`, {
-        timeout: 10000,
+        timeout: 15000, // Increased timeout
         headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache'
@@ -60,7 +116,14 @@ export const getPrediction = async (): Promise<PredictionResponse> => {
       });
 
       console.log(`✅ Connected to ${endpoint.label}`);
-      return response.data;
+      return {
+        risk: response.data.risk || "",
+        weather: response.data.weather || {},
+        daylight_status: response.data.daylight_status || "",
+        location: response.data.location || { latitude: 0, longitude: 0 },
+        probability: response.data.probability || 0,
+        safety_tips: response.data.safety_tips || []
+      };
 
     } catch (error: unknown) {
       lastError = error;

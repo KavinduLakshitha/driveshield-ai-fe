@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import * as Speech from "expo-speech";
 import React, { useEffect, useState } from "react";
 import {
@@ -14,26 +15,95 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle,
-  Cpu,
+  CloudRain,
   Crosshair,
+  Droplet,
+  Eye,
   Info,
+  MapPin,
+  Moon,
   Pause,
-  Radio,
-  RotateCw
+  RotateCw,
+  Sun,
+  Thermometer,
+  Volume2,
+  VolumeX,
+  Wind
 } from 'react-native-feather';
 import { getPrediction } from "../../services/api";
 
 const { width, height } = Dimensions.get('window');
 
+const getCurrentLocation = async (): Promise<{coords: {latitude: number, longitude: number}, locationName: string}> => {
+  try {
+    // Request permissions
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Permission to access location was denied');
+    }
+
+    // Get current position
+    let location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+
+    // Get address from coordinates
+    let reverseGeocode = await Location.reverseGeocodeAsync({
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+    });
+
+    const address = reverseGeocode[0];
+    const locationName = address.city || address.subregion || address.region || "Unknown Location";
+
+    return {
+      coords: {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      },
+      locationName
+    };
+  } catch (error) {
+    throw new Error('Unable to get location');
+  }
+};
+
+// Define the types for better type safety
+interface WeatherData {
+  "Temperature(F)"?: number;
+  "Humidity(%)"?: number;
+  "Visibility(mi)"?: number;
+  "Wind_Speed(mph)"?: number;
+  "Precipitation(in)"?: number;
+}
+
+interface PredictionData {
+  risk: string;
+  weather: WeatherData;
+  daylight_status: string;
+  location: { latitude: number; longitude: number };
+  probability: number;
+  safety_tips: string[];
+}
+
 export default function PredictScreen() {
-  const [risk, setRisk] = useState("");
+  const [data, setData] = useState<PredictionData>({
+    risk: "",
+    weather: {},
+    daylight_status: "",
+    location: { latitude: 0, longitude: 0 },
+    probability: 0,
+    safety_tips: []
+  });
   const [loading, setLoading] = useState(false);
   const [networkStatus, setNetworkStatus] = useState({
     message: "SYSTEM READY",
     attempts: [] as string[]
   });
+  const [locationName, setLocationName] = useState<string>("");
   const [pulseAnim] = useState(new Animated.Value(1));
   const [autoScan, setAutoScan] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   // Continuous scanning effect
   useEffect(() => {
@@ -41,13 +111,31 @@ export default function PredictScreen() {
 
     if (autoScan) {
       fetchPrediction(); // Initial scan
-      interval = setInterval(fetchPrediction, 30000); // Scan every 30 seconds
+      interval = setInterval(fetchPrediction, 20 * 60 * 1000); // Scan every 20 minutes
     }
 
-        return () => {
+    return () => {
       if (interval) clearInterval(interval);
     };
   }, [autoScan]);
+
+  useEffect(() => {
+    const getLocation = async () => {
+      try {
+        const locationData = await getCurrentLocation();
+        setData(prev => ({
+          ...prev,
+          location: locationData.coords
+        }));
+        setLocationName(locationData.locationName);
+      } catch (error) {
+        console.error('Location error:', error);
+        setLocationName('Location unavailable');
+      }
+    };
+
+    getLocation();
+  }, []);
 
   const startPulse = () => {
     Animated.loop(
@@ -74,10 +162,10 @@ export default function PredictScreen() {
 
     try {
       const startTime = Date.now();
-      const data = await getPrediction();
+      const response = await getPrediction();
       const responseTime = Date.now() - startTime;
 
-      setRisk(data.risk);
+      setData(response);
       setNetworkStatus(prev => ({
         message: `LIVE DATA: ${responseTime}ms`,
         attempts: [...prev.attempts]
@@ -89,16 +177,57 @@ export default function PredictScreen() {
       Speech.stop();
 
       // 🔊 Speak risk level aloud with appropriate message
-      if (data.risk === "High Accident Risk") {
-        Speech.speak("Warning! High accident risk. Drive with extreme caution.", {
-          language: "en-US",
-          rate: 1.0
-        });
-      } else if (data.risk === "Low Accident Risk") {
-        Speech.speak("Low accident risk. Continue driving safely.", {
-          language: "en-US",
-          rate: 1.0
-        });
+      // if (response.risk === "High Accident Risk") {
+      //   Speech.speak("Warning! High accident risk. Drive with extreme caution.", {
+      //     language: "en-US",
+      //     rate: 1.0
+      //   });
+      // } else if (response.risk === "Low Accident Risk") {
+      //   Speech.speak("Low accident risk. Continue driving safely.", {
+      //     language: "en-US",
+      //     rate: 1.0
+      //   });
+      // }
+
+      if (voiceEnabled) {
+        if (response.risk === "High Accident Risk") {
+          // Determine specific risk factors for more targeted alerts
+          const weather = response.weather;
+          const isRaining = (weather["Precipitation(in)"] !== undefined && weather["Precipitation(in)"] > 0.1);
+          const lowVisibility = weather["Visibility(mi)"] !== undefined && weather["Visibility(mi)"] < 2;
+          const highWind = weather["Wind_Speed(mph)"] !== undefined && weather["Wind_Speed(mph)"] > 25;
+          const isDarkTime = response.daylight_status === "Night";
+
+          let alertMessage = "Warning! High accident risk detected. ";
+          
+          // Add specific emergency guidance based on conditions
+          if (isRaining && lowVisibility) {
+            alertMessage += "Heavy rain and low visibility. Reduce speed, use emergency lights, and exercise extreme caution.";
+          } else if (isRaining) {
+            alertMessage += "Wet road conditions. Increase following distance and reduce emergency response speed by 15%.";
+          } else if (lowVisibility) {
+            alertMessage += "Poor visibility conditions. Use all emergency lighting and proceed with caution.";
+          } else if (highWind) {
+            alertMessage += "High wind conditions affecting vehicle stability. Maintain firm steering control.";
+          } else if (isDarkTime) {
+            alertMessage += "Nighttime high-risk conditions. Use full emergency lighting and watch for impaired drivers.";
+          } else {
+            alertMessage += "Multiple risk factors present. Consider alternate route if available.";
+          }
+
+          Speech.speak(alertMessage, {
+            language: "en-US",
+            rate: 0.85,
+            pitch: 1.1
+          });
+
+        } else if (response.risk === "Low Accident Risk") {
+          Speech.speak("Low accident risk. Maintain emergency protocols and drive safely.", {
+            language: "en-US",
+            rate: 0.9,
+            pitch: 1.0
+          });
+        }
       }
 
     } catch (error) {
@@ -118,12 +247,20 @@ export default function PredictScreen() {
   };
 
   const getRiskIcon = () => {
-    if (risk.includes("High")) {
+    if (data.risk.includes("High")) {
       return <AlertTriangle stroke="#ef4444" strokeWidth={2.5} width={32} height={32} />;
-    } else if (risk) {
+    } else if (data.risk) {
       return <CheckCircle stroke="#22c55e" strokeWidth={2.5} width={32} height={32} />;
     } else {
       return <RotateCw stroke="#3b82f6" strokeWidth={2.5} width={32} height={32} />;
+    }
+  };
+
+  const toggleVoice = () => {
+    setVoiceEnabled(!voiceEnabled);
+    // Stop any current speech when disabling
+    if (voiceEnabled) {
+      Speech.stop();
     }
   };
 
@@ -160,8 +297,8 @@ export default function PredictScreen() {
             <View style={styles.statusIndicator}>
               <View style={[
                 styles.statusDot,
-                risk.includes("High") ? styles.statusRed :
-                risk ? styles.statusGreen : styles.statusYellow
+                data.risk.includes("High") ? styles.statusRed :
+                data.risk ? styles.statusGreen : styles.statusYellow
               ]} />
               <Text style={styles.statusText}>{networkStatus.message}</Text>
             </View>
@@ -174,7 +311,7 @@ export default function PredictScreen() {
           <Animated.View style={[
             styles.riskDisplay,
             { transform: [{ scale: pulseAnim }] },
-            risk.includes("High") ? styles.highRiskContainer : styles.lowRiskContainer
+            data.risk.includes("High") ? styles.highRiskContainer : styles.lowRiskContainer
           ]}>
             <View style={styles.riskGradient} />
             
@@ -190,13 +327,18 @@ export default function PredictScreen() {
                 </View>
                 
                 <View style={styles.riskTextContainer}>
-                  <Text style={risk.includes("High") ? styles.highRiskText : styles.lowRiskText}>
-                    {risk ? risk.split(" ")[0] : "Standby"}
+                  <Text style={data.risk.includes("High") ? styles.highRiskText : styles.lowRiskText}>
+                    {data.risk ? data.risk.split(" ")[0] : "Standby"}
                   </Text>
-                  {risk && (
-                    <Text style={risk.includes("High") ? styles.highRiskSubText : styles.lowRiskSubText}>
-                      {risk.split(" ").slice(1).join(" ")}
-                    </Text>
+                  {data.risk && (
+                    <>
+                      <Text style={data.risk.includes("High") ? styles.highRiskSubText : styles.lowRiskSubText}>
+                        {data.risk.split(" ").slice(1).join(" ")}
+                      </Text>
+                      <Text style={styles.riskProbability}>
+                        Risk Score: {(data.probability * 100).toFixed(1)}%
+                      </Text>
+                    </>
                   )}
                 </View>
               </View>
@@ -204,7 +346,7 @@ export default function PredictScreen() {
           </Animated.View>
         </View>
 
-        {/* Control Panel */}
+        {/* Control Section */}
         <View style={styles.controlSection}>
           <TouchableOpacity
             style={[
@@ -230,21 +372,97 @@ export default function PredictScreen() {
             <View style={styles.buttonGradient} />
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[
+              styles.scanButton,
+              voiceEnabled ? styles.voiceButtonActive : styles.voiceButtonInactive
+            ]}
+            onPress={toggleVoice}
+            activeOpacity={0.8}
+          >
+            <View style={styles.buttonContent}>
+              <View style={styles.scanButtonIconContainer}>
+                {voiceEnabled ? (
+                  <Volume2 stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                ) : (
+                  <VolumeX stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                )}
+              </View>
+              <Text style={styles.scanButtonText}>
+                {voiceEnabled ? "Voice Alerts Enabled" : "Voice Alerts Disabled"}
+              </Text>
+            </View>
+            <View style={styles.buttonGradient} />
+          </TouchableOpacity>
+
+          {/* Environment Card */}
+          <View style={styles.environmentCard}>
+            <View style={styles.environmentHeader}>
+              <Text style={styles.environmentTitle}>Current Conditions</Text>
+            </View>
+            <View style={styles.environmentGrid}>
+              <View style={styles.weatherItem}>
+                <Thermometer stroke="#3b82f6" width={16} height={16} />
+                <Text style={styles.weatherText}>
+                  {data.weather["Temperature(F)"]?.toFixed(1) || "--"}°F
+                </Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <Droplet stroke="#3b82f6" width={16} height={16} />
+                <Text style={styles.weatherText}>
+                  {data.weather["Humidity(%)"]?.toFixed(1) || "--"}%
+                </Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <Eye stroke="#3b82f6" width={16} height={16} />
+                <Text style={styles.weatherText}>
+                  {data.weather["Visibility(mi)"]?.toFixed(1) || "--"} mi
+                </Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <Wind stroke="#3b82f6" width={16} height={16} />
+                <Text style={styles.weatherText}>
+                  {data.weather["Wind_Speed(mph)"]?.toFixed(1) || "--"} mph
+                </Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <CloudRain stroke="#3b82f6" width={16} height={16} />
+                <Text style={styles.weatherText}>
+                  {data.weather["Precipitation(in)"]?.toFixed(2) || "--"} in
+                </Text>
+              </View>
+              <View style={styles.weatherItem}>
+                {data.daylight_status === "Day" ? (
+                  <Sun stroke="#eab308" width={16} height={16} />
+                ) : (
+                  <Moon stroke="#3b82f6" width={16} height={16} />
+                )}
+                <Text style={styles.weatherText}>{data.daylight_status || "--"}</Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <MapPin stroke="#3b82f6" width={16} height={16} />
+                <Text style={styles.weatherText}>
+                  {locationName || "Location Unknown"}
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {/* Alert Card */}
           <View style={[
             styles.alertCard,
-            risk.includes("High") && styles.highRiskAlert
+            data.risk.includes("High") && styles.highRiskAlert
           ]}>
             <View style={styles.alertContent}>
               <View style={styles.alertIconContainer}>
-                {risk.includes("High") ? (
+                {data.risk.includes("High") ? (
                   <AlertCircle stroke="#ef4444" strokeWidth={2} width={20} height={20} />
                 ) : (
                   <Info stroke="#3b82f6" strokeWidth={2} width={20} height={20} />
                 )}
               </View>
               <Text style={styles.alertText}>
-                {risk.includes("High")
+                {data.risk.includes("High")
                   ? "HIGH RISK DETECTED: Proceed with extreme caution"
                   : "Continuous route monitoring active"}
               </Text>
@@ -252,27 +470,21 @@ export default function PredictScreen() {
           </View>
         </View>
 
-        {/* Info Cards */}
-        <View style={styles.infoSection}>
-          <View style={styles.infoCard}>
-            <View style={styles.infoIcon}>
-              <Radio stroke="#3b82f6" strokeWidth={2} width={16} height={16} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>GPS Synchronized</Text>
-              <Text style={styles.infoDescription}>Real-time location tracking</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoCard}>
-            <View style={styles.infoIcon}>
-              <Cpu stroke="#8b5cf6" strokeWidth={2} width={16} height={16} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>AI Engine v2.4</Text>
-              <Text style={styles.infoDescription}>Advanced prediction algorithms</Text>
-            </View>
-          </View>
+        {/* Safety Tips Section */}
+        <View style={styles.safetyTipsSection}>
+          <Text style={styles.sectionTitle}>Safety Tips</Text>
+          {data.safety_tips.length > 0 ? (
+            data.safety_tips.map((tip, index) => (
+              <View key={index} style={styles.tipCard}>
+                <View style={styles.tipIcon}>
+                  <AlertCircle stroke="#ef4444" width={16} height={16} />
+                </View>
+                <Text style={styles.tipText}>{tip}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noTipsText}>No specific tips available.</Text>
+          )}
         </View>
 
         {/* Bottom Spacer */}
@@ -423,10 +635,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 150,
     height: 150,
-    borderRadius: 75,
+    borderRadius: 100,
     backgroundColor: 'rgba(59, 130, 246, 0.03)',
-    top: -75,
-    right: -75,
+    top: 0,
+    right: 0,
     zIndex: 1,
   },
   riskSection: {
@@ -435,9 +647,9 @@ const styles = StyleSheet.create({
   },
   riskDisplay: {
     width: width * 0.85,
-    height: width * 0.85,
+    height: null,
+    aspectRatio: 1,
     maxWidth: 300,
-    maxHeight: 300,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 24,
@@ -540,6 +752,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(75, 85, 99, 0.3)',
     borderColor: 'rgba(75, 85, 99, 0.3)',
   },
+  voiceButtonActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  voiceButtonInactive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -551,7 +771,7 @@ const styles = StyleSheet.create({
   },
   scanButtonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   buttonGradient: {
@@ -659,7 +879,7 @@ const styles = StyleSheet.create({
     top: '50%',
     right: '8%',
   },
-    logoIconContainer: {
+  logoIconContainer: {
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -667,5 +887,76 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
-  }
+  },
+  riskProbability: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  environmentCard: {
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  environmentHeader: {
+    marginBottom: 16,
+  },
+  environmentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  environmentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  weatherItem: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  weatherText: {
+    fontSize: 14,
+    color: '#e2e8f0',
+    marginLeft: 8,
+  },
+  safetyTipsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  tipIcon: {
+    marginRight: 12,
+  },
+  tipText: {
+    fontSize: 14,
+    color: '#ffffff',
+    flex: 1,
+  },
+  noTipsText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
 });
