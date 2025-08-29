@@ -1,3 +1,4 @@
+import { getStatusIndicator, useAccessibility } from '@/context/AccessibilityContext';
 import * as Location from 'expo-location';
 import * as Speech from "expo-speech";
 import React, { useEffect, useState } from "react";
@@ -105,6 +106,11 @@ export default function PredictScreen() {
   const [autoScan, setAutoScan] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
 
+  // Get accessibility context
+  const { getColors, getFontSizes, settings } = useAccessibility();
+  const colors = getColors();
+  const fonts = getFontSizes();
+
   // Continuous scanning effect
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -173,21 +179,8 @@ export default function PredictScreen() {
 
       pulseAnim.stopAnimation();
 
-      // 🔊 Stop any ongoing speech
+      // Stop any ongoing speech
       Speech.stop();
-
-      // 🔊 Speak risk level aloud with appropriate message
-      // if (response.risk === "High Accident Risk") {
-      //   Speech.speak("Warning! High accident risk. Drive with extreme caution.", {
-      //     language: "en-US",
-      //     rate: 1.0
-      //   });
-      // } else if (response.risk === "Low Accident Risk") {
-      //   Speech.speak("Low accident risk. Continue driving safely.", {
-      //     language: "en-US",
-      //     rate: 1.0
-      //   });
-      // }
 
       if (voiceEnabled) {
         if (response.risk === "High Accident Risk") {
@@ -247,12 +240,15 @@ export default function PredictScreen() {
   };
 
   const getRiskIcon = () => {
-    if (data.risk.includes("High")) {
-      return <AlertTriangle stroke="#ef4444" strokeWidth={2.5} width={32} height={32} />;
+    const isHighRisk = data.risk.includes("High");
+    const iconColor = isHighRisk ? colors.error : (data.risk ? colors.success : colors.primary);
+    
+    if (isHighRisk) {
+      return <AlertTriangle stroke={iconColor} strokeWidth={2.5} width={32} height={32} />;
     } else if (data.risk) {
-      return <CheckCircle stroke="#22c55e" strokeWidth={2.5} width={32} height={32} />;
+      return <CheckCircle stroke={iconColor} strokeWidth={2.5} width={32} height={32} />;
     } else {
-      return <RotateCw stroke="#3b82f6" strokeWidth={2.5} width={32} height={32} />;
+      return <RotateCw stroke={iconColor} strokeWidth={2.5} width={32} height={32} />;
     }
   };
 
@@ -264,14 +260,227 @@ export default function PredictScreen() {
     }
   };
 
+  // Get status indicators for colorblind support
+  const systemStatusIndicator = getStatusIndicator(
+    data.risk.includes("High") ? 'danger' : (data.risk ? 'success' : 'warning'), 
+    settings.colorBlindMode
+  );
+
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    title: {
+      fontSize: fonts.title,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: 0.5,
+    },
+    subtitle: {
+      fontSize: fonts.medium,
+      color: colors.textSecondary,
+      fontWeight: '400',
+    },
+    statusCard: {
+      position: 'relative',
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 24,
+      borderWidth: settings.highContrast ? 2 : 1,
+      borderColor: settings.highContrast ? colors.textSecondary : 'rgba(148, 163, 184, 0.1)',
+      overflow: 'hidden',
+    },
+    statusText: {
+      color: colors.text,
+      fontSize: fonts.medium,
+      fontWeight: '600',
+    },
+    statusLabel: {
+      fontSize: fonts.small,
+      color: colors.textSecondary,
+      fontWeight: '500',
+      marginBottom: 8,
+    },
+    riskDisplay: {
+      width: width * 0.85,
+      height: null,
+      aspectRatio: 1,
+      maxWidth: 300,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 24,
+      padding: 24,
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    highRiskContainer: {
+      backgroundColor: `${colors.error}14`,
+      borderWidth: settings.highContrast ? 3 : 2,
+      borderColor: settings.highContrast ? colors.error : `${colors.error}4D`,
+    },
+    lowRiskContainer: {
+      backgroundColor: `${colors.success}14`,
+      borderWidth: settings.highContrast ? 3 : 2,
+      borderColor: settings.highContrast ? colors.success : `${colors.success}4D`,
+    },
+    loadingText: {
+      color: colors.text,
+      fontSize: fonts.medium,
+      fontWeight: '500',
+      marginTop: 16,
+    },
+    highRiskText: {
+      fontSize: fonts.title + 12,
+      color: colors.error,
+      fontWeight: '800',
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    lowRiskText: {
+      fontSize: fonts.title + 12,
+      color: colors.success,
+      fontWeight: '800',
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    highRiskSubText: {
+      fontSize: fonts.large,
+      color: colors.error,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    lowRiskSubText: {
+      fontSize: fonts.large,
+      color: colors.success,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    riskProbability: {
+      fontSize: fonts.medium,
+      color: colors.text,
+      fontWeight: '500',
+      textAlign: 'center',
+      marginTop: 8,
+    },
+    scanButton: {
+      position: 'relative',
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      borderWidth: settings.highContrast ? 2 : 1,
+      overflow: 'hidden',
+    },
+    scanButtonActive: {
+      backgroundColor: `${colors.success}1A`,
+      borderColor: settings.highContrast ? colors.success : `${colors.success}4D`,
+    },
+    scanButtonInactive: {
+      backgroundColor: `${colors.primary}1A`,
+      borderColor: settings.highContrast ? colors.primary : `${colors.primary}4D`,
+    },
+    voiceButtonActive: {
+      backgroundColor: `${colors.success}1A`,
+      borderColor: settings.highContrast ? colors.success : `${colors.success}4D`,
+    },
+    voiceButtonInactive: {
+      backgroundColor: `${colors.error}1A`,
+      borderColor: settings.highContrast ? colors.error : `${colors.error}4D`,
+    },
+    scanButtonText: {
+      color: colors.text,
+      fontSize: fonts.medium,
+      fontWeight: '600',
+    },
+    environmentCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      borderWidth: settings.highContrast ? 2 : 1,
+      borderColor: settings.highContrast ? colors.textSecondary : 'rgba(148, 163, 184, 0.1)',
+    },
+    environmentTitle: {
+      fontSize: fonts.large,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    weatherText: {
+      fontSize: fonts.medium,
+      color: colors.text,
+      marginLeft: 8,
+    },
+    alertCard: {
+      backgroundColor: `${colors.primary}14`,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: settings.highContrast ? 2 : 1,
+      borderColor: settings.highContrast ? colors.primary : `${colors.primary}33`,
+    },
+    highRiskAlert: {
+      backgroundColor: `${colors.error}14`,
+      borderColor: settings.highContrast ? colors.error : `${colors.error}4D`,
+    },
+    alertText: {
+      color: colors.text,
+      fontSize: fonts.medium,
+      fontWeight: '500',
+      flex: 1,
+      lineHeight: 20,
+    },
+    sectionTitle: {
+      fontSize: fonts.title - 2,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 16,
+    },
+    tipCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: `${colors.error}14`,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: settings.highContrast ? 2 : 1,
+      borderColor: settings.highContrast ? colors.error : `${colors.error}33`,
+    },
+    tipText: {
+      fontSize: fonts.medium,
+      color: colors.text,
+      flex: 1,
+    },
+    noTipsText: {
+      fontSize: fonts.medium,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={dynamicStyles.container}>
       {/* Animated Background Waves */}
       <View style={styles.backgroundContainer}>
-        <View style={[styles.wave, styles.wave1]} />
-        <View style={[styles.wave, styles.wave2]} />
-        <View style={[styles.wave, styles.wave3]} />
-        <View style={[styles.wave, styles.wave4]} />
+        <View style={[
+          styles.wave, 
+          styles.wave1,
+          { backgroundColor: `${colors.primary}0D` }
+        ]} />
+        <View style={[
+          styles.wave, 
+          styles.wave2,
+          { backgroundColor: `${colors.secondary}08` }
+        ]} />
+        <View style={[
+          styles.wave, 
+          styles.wave3,
+          { backgroundColor: settings.colorBlindMode ? `${colors.info}06` : 'rgba(236, 72, 153, 0.025)' }
+        ]} />
+        <View style={[
+          styles.wave, 
+          styles.wave4,
+          { backgroundColor: `${colors.success}04` }
+        ]} />
       </View>
 
       <ScrollView 
@@ -282,60 +491,84 @@ export default function PredictScreen() {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <View style={styles.logoIconContainer}>
-              <Crosshair stroke="#3b82f6" strokeWidth={2.5} width={24} height={24} />
+            <View style={[
+              styles.logoIconContainer,
+              { backgroundColor: `${colors.primary}26` }
+            ]}>
+              <Crosshair stroke={colors.primary} strokeWidth={2.5} width={24} height={24} />
             </View>
-            <Text style={styles.title}>AI PREDICTION</Text>
+            <Text style={dynamicStyles.title}>AI PREDICTION</Text>
           </View>
-          <Text style={styles.subtitle}>Real-time Risk Analysis</Text>
+          <Text style={dynamicStyles.subtitle}>Real-time Risk Analysis</Text>
         </View>
 
         {/* Status Card */}
-        <View style={styles.statusCard}>
+        <View style={dynamicStyles.statusCard}>
           <View style={styles.statusHeader}>
-            <Text style={styles.statusLabel}>System Status</Text>
+            <Text style={dynamicStyles.statusLabel}>System Status</Text>
             <View style={styles.statusIndicator}>
               <View style={[
                 styles.statusDot,
-                data.risk.includes("High") ? styles.statusRed :
-                data.risk ? styles.statusGreen : styles.statusYellow
+                data.risk.includes("High") ? { backgroundColor: colors.error, shadowColor: colors.error } :
+                data.risk ? { backgroundColor: colors.success, shadowColor: colors.success } : 
+                { backgroundColor: colors.warning, shadowColor: colors.warning }
               ]} />
-              <Text style={styles.statusText}>{networkStatus.message}</Text>
+              {systemStatusIndicator.needsPattern && (
+                <Text style={[
+                  styles.statusPattern, 
+                  { 
+                    color: data.risk.includes("High") ? colors.error : (data.risk ? colors.success : colors.warning),
+                    fontSize: fonts.medium
+                  }
+                ]}>
+                  {systemStatusIndicator.pattern}
+                </Text>
+              )}
+              <Text style={dynamicStyles.statusText}>{networkStatus.message}</Text>
             </View>
           </View>
-          <View style={styles.statusWave} />
+          <View style={[
+            styles.statusWave,
+            { backgroundColor: `${colors.primary}06` }
+          ]} />
         </View>
 
         {/* Main Risk Display */}
         <View style={styles.riskSection}>
           <Animated.View style={[
-            styles.riskDisplay,
+            dynamicStyles.riskDisplay,
             { transform: [{ scale: pulseAnim }] },
-            data.risk.includes("High") ? styles.highRiskContainer : styles.lowRiskContainer
+            data.risk.includes("High") ? dynamicStyles.highRiskContainer : dynamicStyles.lowRiskContainer
           ]}>
-            <View style={styles.riskGradient} />
+            <View style={[
+              styles.riskGradient,
+              { backgroundColor: `${colors.primary}06` }
+            ]} />
             
             {loading ? (
               <View style={styles.loadingContent}>
-                <ActivityIndicator size="large" color="#FFFFFF" />
-                <Text style={styles.loadingText}>Analyzing Route...</Text>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={dynamicStyles.loadingText}>Analyzing Route...</Text>
               </View>
             ) : (
               <View style={styles.riskContent}>
-                <View style={styles.riskIcon}>
+                <View style={[
+                  styles.riskIcon,
+                  { backgroundColor: `${colors.text}1A` }
+                ]}>
                   {getRiskIcon()}
                 </View>
                 
                 <View style={styles.riskTextContainer}>
-                  <Text style={data.risk.includes("High") ? styles.highRiskText : styles.lowRiskText}>
+                  <Text style={data.risk.includes("High") ? dynamicStyles.highRiskText : dynamicStyles.lowRiskText}>
                     {data.risk ? data.risk.split(" ")[0] : "Standby"}
                   </Text>
                   {data.risk && (
                     <>
-                      <Text style={data.risk.includes("High") ? styles.highRiskSubText : styles.lowRiskSubText}>
+                      <Text style={data.risk.includes("High") ? dynamicStyles.highRiskSubText : dynamicStyles.lowRiskSubText}>
                         {data.risk.split(" ").slice(1).join(" ")}
                       </Text>
-                      <Text style={styles.riskProbability}>
+                      <Text style={dynamicStyles.riskProbability}>
                         Risk Score: {(data.probability * 100).toFixed(1)}%
                       </Text>
                     </>
@@ -350,8 +583,8 @@ export default function PredictScreen() {
         <View style={styles.controlSection}>
           <TouchableOpacity
             style={[
-              styles.scanButton,
-              autoScan ? styles.scanButtonActive : styles.scanButtonInactive,
+              dynamicStyles.scanButton,
+              autoScan ? dynamicStyles.scanButtonActive : dynamicStyles.scanButtonInactive,
               loading && styles.scanButtonDisabled
             ]}
             onPress={toggleAutoScan}
@@ -360,22 +593,25 @@ export default function PredictScreen() {
             <View style={styles.buttonContent}>
               <View style={styles.scanButtonIconContainer}>
                 {autoScan ? (
-                  <RotateCw stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                  <RotateCw stroke={colors.text} strokeWidth={2} width={20} height={20} />
                 ) : (
-                  <Pause stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                  <Pause stroke={colors.text} strokeWidth={2} width={20} height={20} />
                 )}
               </View>
-              <Text style={styles.scanButtonText}>
+              <Text style={dynamicStyles.scanButtonText}>
                 {autoScan ? "Auto Scanning Active" : "Tap to Enable Auto Scan"}
               </Text>
             </View>
-            <View style={styles.buttonGradient} />
+            <View style={[
+              styles.buttonGradient,
+              { backgroundColor: `${colors.text}04` }
+            ]} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
-              styles.scanButton,
-              voiceEnabled ? styles.voiceButtonActive : styles.voiceButtonInactive
+              dynamicStyles.scanButton,
+              voiceEnabled ? dynamicStyles.voiceButtonActive : dynamicStyles.voiceButtonInactive
             ]}
             onPress={toggleVoice}
             activeOpacity={0.8}
@@ -383,65 +619,68 @@ export default function PredictScreen() {
             <View style={styles.buttonContent}>
               <View style={styles.scanButtonIconContainer}>
                 {voiceEnabled ? (
-                  <Volume2 stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                  <Volume2 stroke={colors.text} strokeWidth={2} width={20} height={20} />
                 ) : (
-                  <VolumeX stroke="#ffffff" strokeWidth={2} width={20} height={20} />
+                  <VolumeX stroke={colors.text} strokeWidth={2} width={20} height={20} />
                 )}
               </View>
-              <Text style={styles.scanButtonText}>
+              <Text style={dynamicStyles.scanButtonText}>
                 {voiceEnabled ? "Voice Alerts Enabled" : "Voice Alerts Disabled"}
               </Text>
             </View>
-            <View style={styles.buttonGradient} />
+            <View style={[
+              styles.buttonGradient,
+              { backgroundColor: `${colors.text}04` }
+            ]} />
           </TouchableOpacity>
 
           {/* Environment Card */}
-          <View style={styles.environmentCard}>
+          <View style={dynamicStyles.environmentCard}>
             <View style={styles.environmentHeader}>
-              <Text style={styles.environmentTitle}>Current Conditions</Text>
+              <Text style={dynamicStyles.environmentTitle}>Current Conditions</Text>
             </View>
             <View style={styles.environmentGrid}>
               <View style={styles.weatherItem}>
-                <Thermometer stroke="#3b82f6" width={16} height={16} />
-                <Text style={styles.weatherText}>
+                <Thermometer stroke={colors.primary} width={16} height={16} />
+                <Text style={dynamicStyles.weatherText}>
                   {data.weather["Temperature(F)"]?.toFixed(1) || "--"}°F
                 </Text>
               </View>
               <View style={styles.weatherItem}>
-                <Droplet stroke="#3b82f6" width={16} height={16} />
-                <Text style={styles.weatherText}>
+                <Droplet stroke={colors.primary} width={16} height={16} />
+                <Text style={dynamicStyles.weatherText}>
                   {data.weather["Humidity(%)"]?.toFixed(1) || "--"}%
                 </Text>
               </View>
               <View style={styles.weatherItem}>
-                <Eye stroke="#3b82f6" width={16} height={16} />
-                <Text style={styles.weatherText}>
+                <Eye stroke={colors.primary} width={16} height={16} />
+                <Text style={dynamicStyles.weatherText}>
                   {data.weather["Visibility(mi)"]?.toFixed(1) || "--"} mi
                 </Text>
               </View>
               <View style={styles.weatherItem}>
-                <Wind stroke="#3b82f6" width={16} height={16} />
-                <Text style={styles.weatherText}>
+                <Wind stroke={colors.primary} width={16} height={16} />
+                <Text style={dynamicStyles.weatherText}>
                   {data.weather["Wind_Speed(mph)"]?.toFixed(1) || "--"} mph
                 </Text>
               </View>
               <View style={styles.weatherItem}>
-                <CloudRain stroke="#3b82f6" width={16} height={16} />
-                <Text style={styles.weatherText}>
+                <CloudRain stroke={colors.primary} width={16} height={16} />
+                <Text style={dynamicStyles.weatherText}>
                   {data.weather["Precipitation(in)"]?.toFixed(2) || "--"} in
                 </Text>
               </View>
               <View style={styles.weatherItem}>
                 {data.daylight_status === "Day" ? (
-                  <Sun stroke="#eab308" width={16} height={16} />
+                  <Sun stroke={colors.warning} width={16} height={16} />
                 ) : (
-                  <Moon stroke="#3b82f6" width={16} height={16} />
+                  <Moon stroke={colors.primary} width={16} height={16} />
                 )}
-                <Text style={styles.weatherText}>{data.daylight_status || "--"}</Text>
+                <Text style={dynamicStyles.weatherText}>{data.daylight_status || "--"}</Text>
               </View>
               <View style={styles.weatherItem}>
-                <MapPin stroke="#3b82f6" width={16} height={16} />
-                <Text style={styles.weatherText}>
+                <MapPin stroke={colors.primary} width={16} height={16} />
+                <Text style={dynamicStyles.weatherText}>
                   {locationName || "Location Unknown"}
                 </Text>
               </View>
@@ -450,18 +689,18 @@ export default function PredictScreen() {
 
           {/* Alert Card */}
           <View style={[
-            styles.alertCard,
-            data.risk.includes("High") && styles.highRiskAlert
+            dynamicStyles.alertCard,
+            data.risk.includes("High") && dynamicStyles.highRiskAlert
           ]}>
             <View style={styles.alertContent}>
               <View style={styles.alertIconContainer}>
                 {data.risk.includes("High") ? (
-                  <AlertCircle stroke="#ef4444" strokeWidth={2} width={20} height={20} />
+                  <AlertCircle stroke={colors.error} strokeWidth={2} width={20} height={20} />
                 ) : (
-                  <Info stroke="#3b82f6" strokeWidth={2} width={20} height={20} />
+                  <Info stroke={colors.primary} strokeWidth={2} width={20} height={20} />
                 )}
               </View>
-              <Text style={styles.alertText}>
+              <Text style={dynamicStyles.alertText}>
                 {data.risk.includes("High")
                   ? "HIGH RISK DETECTED: Proceed with extreme caution"
                   : "Continuous route monitoring active"}
@@ -472,18 +711,18 @@ export default function PredictScreen() {
 
         {/* Safety Tips Section */}
         <View style={styles.safetyTipsSection}>
-          <Text style={styles.sectionTitle}>Safety Tips</Text>
+          <Text style={dynamicStyles.sectionTitle}>Safety Tips</Text>
           {data.safety_tips.length > 0 ? (
             data.safety_tips.map((tip, index) => (
-              <View key={index} style={styles.tipCard}>
+              <View key={index} style={dynamicStyles.tipCard}>
                 <View style={styles.tipIcon}>
-                  <AlertCircle stroke="#ef4444" width={16} height={16} />
+                  <AlertCircle stroke={colors.error} width={16} height={16} />
                 </View>
-                <Text style={styles.tipText}>{tip}</Text>
+                <Text style={dynamicStyles.tipText}>{tip}</Text>
               </View>
             ))
           ) : (
-            <Text style={styles.noTipsText}>No specific tips available.</Text>
+            <Text style={dynamicStyles.noTipsText}>No specific tips available.</Text>
           )}
         </View>
 
@@ -493,19 +732,27 @@ export default function PredictScreen() {
 
       {/* Floating Elements */}
       <View style={styles.floatingElements}>
-        <View style={[styles.floatingDot, styles.dot1]} />
-        <View style={[styles.floatingDot, styles.dot2]} />
-        <View style={[styles.floatingDot, styles.dot3]} />
+        <View style={[
+          styles.floatingDot, 
+          styles.dot1,
+          { backgroundColor: `${colors.primary}26` }
+        ]} />
+        <View style={[
+          styles.floatingDot, 
+          styles.dot2,
+          { backgroundColor: `${colors.secondary}1A` }
+        ]} />
+        <View style={[
+          styles.floatingDot, 
+          styles.dot3,
+          { backgroundColor: settings.colorBlindMode ? `${colors.info}1A` : 'rgba(236, 72, 153, 0.1)' }
+        ]} />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0f24',
-  },
   backgroundContainer: {
     position: 'absolute',
     width: width * 2,
@@ -520,7 +767,6 @@ const styles = StyleSheet.create({
   wave1: {
     width: width * 1.6,
     height: width * 1.6,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
     top: height * 0.05,
     left: -width * 0.3,
     transform: [{ rotate: '20deg' }],
@@ -528,7 +774,6 @@ const styles = StyleSheet.create({
   wave2: {
     width: width * 1.4,
     height: width * 1.4,
-    backgroundColor: 'rgba(139, 92, 246, 0.04)',
     top: height * 0.3,
     right: -width * 0.2,
     transform: [{ rotate: '-30deg' }],
@@ -536,7 +781,6 @@ const styles = StyleSheet.create({
   wave3: {
     width: width * 1.8,
     height: width * 1.8,
-    backgroundColor: 'rgba(236, 72, 153, 0.025)',
     top: height * 0.6,
     left: -width * 0.4,
     transform: [{ rotate: '40deg' }],
@@ -544,7 +788,6 @@ const styles = StyleSheet.create({
   wave4: {
     width: width * 1.2,
     height: width * 1.2,
-    backgroundColor: 'rgba(34, 197, 94, 0.02)',
     top: height * 0.15,
     right: -width * 0.1,
     transform: [{ rotate: '-15deg' }],
@@ -567,40 +810,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  logoIcon: {
+  logoIconContainer: {
     width: 32,
-    height: 37,
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#94a3b8',
-    fontWeight: '400',
-  },
-  statusCard: {
-    position: 'relative',
-    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    height: 32,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.1)',
-    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   statusHeader: {
     zIndex: 2,
-  },
-  statusLabel: {
-    fontSize: 14,
-    color: '#94a3b8',
-    fontWeight: '500',
-    marginBottom: 8,
   },
   statusIndicator: {
     flexDirection: 'row',
@@ -614,29 +833,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOpacity: 0.6,
   },
-  statusRed: {
-    backgroundColor: '#ef4444',
-    shadowColor: '#ef4444',
-  },
-  statusYellow: {
-    backgroundColor: '#eab308',
-    shadowColor: '#eab308',
-  },
-  statusGreen: {
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e',
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  statusPattern: {
+    marginRight: 8,
+    fontWeight: 'bold',
   },
   statusWave: {
     position: 'absolute',
     width: 150,
     height: 150,
     borderRadius: 100,
-    backgroundColor: 'rgba(59, 130, 246, 0.03)',
     top: 0,
     right: 0,
     zIndex: 1,
@@ -645,34 +850,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  riskDisplay: {
-    width: width * 0.85,
-    height: null,
-    aspectRatio: 1,
-    maxWidth: 300,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 24,
-    padding: 24,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  highRiskContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderWidth: 2,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  lowRiskContainer: {
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-    borderWidth: 2,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-  },
   riskGradient: {
     position: 'absolute',
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(59, 130, 246, 0.03)',
     top: -100,
     right: -100,
     zIndex: 1,
@@ -680,12 +862,6 @@ const styles = StyleSheet.create({
   loadingContent: {
     alignItems: 'center',
     zIndex: 2,
-  },
-  loadingText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
-    marginTop: 16,
   },
   riskContent: {
     alignItems: 'center',
@@ -695,7 +871,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -703,62 +878,12 @@ const styles = StyleSheet.create({
   riskTextContainer: {
     alignItems: 'center',
   },
-  highRiskText: {
-    fontSize: 36,
-    color: '#ef4444',
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  lowRiskText: {
-    fontSize: 36,
-    color: '#22c55e',
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  highRiskSubText: {
-    fontSize: 18,
-    color: '#ef4444',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  lowRiskSubText: {
-    fontSize: 18,
-    color: '#22c55e',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   controlSection: {
     marginBottom: 24,
-  },
-  scanButton: {
-    position: 'relative',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  scanButtonActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-  },
-  scanButtonInactive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
   scanButtonDisabled: {
     backgroundColor: 'rgba(75, 85, 99, 0.3)',
     borderColor: 'rgba(75, 85, 99, 0.3)',
-  },
-  voiceButtonActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-  },
-  voiceButtonInactive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   buttonContent: {
     flexDirection: 'row',
@@ -769,31 +894,14 @@ const styles = StyleSheet.create({
   scanButtonIconContainer: {
     marginRight: 12,
   },
-  scanButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   buttonGradient: {
     position: 'absolute',
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     top: -75,
     right: -75,
     zIndex: 1,
-  },
-  alertCard: {
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  highRiskAlert: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   alertContent: {
     flexDirection: 'row',
@@ -802,48 +910,25 @@ const styles = StyleSheet.create({
   alertIconContainer: {
     marginRight: 12,
   },
-  alertText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-    lineHeight: 20,
+  environmentHeader: {
+    marginBottom: 16,
   },
-  infoSection: {
+  environmentGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 24,
   },
-  infoCard: {
+  weatherItem: {
     width: '48%',
-    backgroundColor: 'rgba(51, 65, 85, 0.4)',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.1)',
-  },
-  infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  infoContent: {
-    alignItems: 'flex-start',
+  safetyTipsSection: {
+    marginBottom: 24,
   },
-  infoTitle: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  infoDescription: {
-    color: '#94a3b8',
-    fontSize: 12,
-    lineHeight: 16,
+  tipIcon: {
+    marginRight: 12,
   },
   bottomSpacer: {
     height: 40,
@@ -861,102 +946,19 @@ const styles = StyleSheet.create({
   dot1: {
     width: 8,
     height: 8,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
     top: '20%',
     right: '15%',
   },
   dot2: {
     width: 12,
     height: 12,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
     top: '70%',
     left: '10%',
   },
   dot3: {
     width: 10,
     height: 10,
-    backgroundColor: 'rgba(236, 72, 153, 0.1)',
     top: '50%',
     right: '8%',
-  },
-  logoIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  riskProbability: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '500',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  environmentCard: {
-    backgroundColor: 'rgba(51, 65, 85, 0.4)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.1)',
-  },
-  environmentHeader: {
-    marginBottom: 16,
-  },
-  environmentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  environmentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  weatherItem: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  weatherText: {
-    fontSize: 14,
-    color: '#e2e8f0',
-    marginLeft: 8,
-  },
-  safetyTipsSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 16,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  tipIcon: {
-    marginRight: 12,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#ffffff',
-    flex: 1,
-  },
-  noTipsText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
   },
 });
